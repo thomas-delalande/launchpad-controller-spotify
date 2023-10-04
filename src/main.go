@@ -129,7 +129,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	queueIndex := -1
 	count := 0
 	fmt.Printf("Waiting for track to be in queue...\n")
-	for index == -1 {
+	for queueIndex == -1 {
 		queue, err := client.GetQueue(ctx)
 		if err != nil {
 			log.Fatal(err)
