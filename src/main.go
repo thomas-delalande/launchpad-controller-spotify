@@ -106,7 +106,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		return
 	}
 	track := tracks[index]
-	fmt.Printf("Playing track %v", track)
+	fmt.Printf("Playing track %v", track.Track.Track.Name)
 	devices, err := client.PlayerDevices(ctx)
 	if err != nil {
 		log.Fatal(err)
