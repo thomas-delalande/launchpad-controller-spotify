@@ -146,7 +146,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		}
 
 		for i, item := range queue.Items {
-			fmt.Printf("-> %v is in queue, position: %v \n", item, index)
+			fmt.Printf("-> %v is in queue, position: %v \n", item, i)
 			if item.ID == track.Track.Track.ID {
 				queueIndex = i
 			}
