@@ -1,0 +1,4 @@
+github.com/rakyll/launchpad v0.1.0 h1:3jJGD3G6TsdvjziSoIkLLyM1PQVFpTe6qe1UAuhkrBA=
+github.com/rakyll/launchpad v0.1.0/go.mod h1:SO28NeQn5O4nLIv4/k6sXt6PPTW2M1GjSulhpFwWpkw=
+github.com/rakyll/portmidi v0.0.0-20191102002215-74e95e8bc9b1 h1:ayxM9WkC6QRX0QnfrbZa98pfFqrNq1jo+58rWL1qjZs=
+github.com/rakyll/portmidi v0.0.0-20191102002215-74e95e8bc9b1/go.mod h1:xKffaBd7e1YUoLpR2azvJqkxEdUDNGNDMlsUNdv6Bcs=
