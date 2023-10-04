@@ -120,7 +120,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	}
 	track := tracks[index]
 	fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
-	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId, PositionMs: 1})
+	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId, PositionMs: 10000})
 	if err != nil {
 		log.Fatal(err)
 	}
