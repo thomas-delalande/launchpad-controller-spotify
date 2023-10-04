@@ -95,11 +95,12 @@ func main() {
 				client.Pause(ctx)
 				activeX = -1
 				activeY = -1
+			} else {
+				playTrack(ctx, client, hit.X+8*hit.Y)
+				activeX = hit.X
+				activeY = hit.Y
+				pad.Light(hit.X, hit.Y, 3, 0)
 			}
-			playTrack(ctx, client, hit.X+8*hit.Y)
-			activeX = hit.X
-			activeY = hit.Y
-			pad.Light(hit.X, hit.Y, 3, 0)
 		}
 	}
 }
