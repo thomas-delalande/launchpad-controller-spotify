@@ -126,12 +126,9 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	playback, err := client.PlayerState(ctx)
+	err = client.Next(ctx)
 	if err != nil {
 		log.Fatal(err)
-	}
-	for playback.Playing == true && playback.CurrentlyPlaying.Item.ID != track.Track.Track.ID {
-		client.Next(ctx)
 	}
 	err = client.Play(ctx)
 	if err != nil {
