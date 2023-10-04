@@ -24,6 +24,8 @@ var (
 
 var tracks = []spotify.PlaylistItem{}
 var deviceId = spotify.ID("")
+var activeX = -1
+var activeY = -1
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -89,7 +91,14 @@ func main() {
 					}
 				}
 			}
+			if hit.X == activeX && hit.Y == activeY {
+				client.Pause(ctx)
+				activeX = -1
+				activeY = -1
+			}
 			playTrack(ctx, client, hit.X+8*hit.Y)
+			activeX = hit.X
+			activeY = hit.Y
 			pad.Light(hit.X, hit.Y, 3, 0)
 		}
 	}
