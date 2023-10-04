@@ -1,8 +1,16 @@
 package main
 
 import (
-	"github.com/rakyll/launchpad"
+	"context"
 	"fmt"
+	"log"
+	"os"
+
+	"github.com/rakyll/launchpad"
+	spotifyauth "github.com/zmb3/spotify/v2/auth"
+
+	"github.com/zmb3/spotify/v2"
+	"golang.org/x/oauth2/clientcredentials"
 )
 
 func main() {
@@ -17,7 +25,6 @@ func main() {
 		log.Fatalf("couldn't get token: %v", err)
 	}
 	httpClient := spotifyauth.New().Client(ctx, token)
-	httpClient := spotifyauth.New().Client(ctx, token)
 	client := spotify.New(httpClient)
 	msg, page, err := client.FeaturedPlaylists(ctx)
 	if err != nil {
@@ -29,10 +36,10 @@ func main() {
 		fmt.Println("  ", playlist.Name)
 	}
 
-	pad, err := launchpad.Open();
+	pad, err := launchpad.Open()
 	if err != nil {
-	    fmt.Printf("Error initializing launchpad: %v", err)
-	    panic("")
+		fmt.Printf("Error initializing launchpad: %v", err)
+		panic("")
 	}
 	defer pad.Close()
 
@@ -40,8 +47,8 @@ func main() {
 	ch := pad.Listen()
 	for {
 		select {
-			case hit := <-ch:
-				pad.Light(hit.X, hit.Y, 3, 3)
+		case hit := <-ch:
+			pad.Light(hit.X, hit.Y, 3, 3)
 		}
 	}
 }
