@@ -68,7 +68,7 @@ func main() {
 	count := 0
 	for i := 0; i <= 7; i++ {
 		for j := 0; j <= 7; j++ {
-			if count <= len(tracks) {
+			if count <= len(tracks)-1 {
 				pad.Light(j, i, 3, 3)
 				count += 1
 			}
@@ -116,7 +116,7 @@ func updateTracks(ctx context.Context, client *spotify.Client) {
 }
 
 func playTrack(ctx context.Context, client *spotify.Client, index int) {
-	if index > len(tracks) {
+	if index >= len(tracks) {
 		return
 	}
 	track := tracks[index]
