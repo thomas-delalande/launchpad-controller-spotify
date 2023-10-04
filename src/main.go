@@ -64,19 +64,18 @@ func main() {
 	for {
 		select {
 		case hit := <-ch:
-			playTrack(ctx, client, hit.X+8*hit.Y)
-			pad.Light(hit.X, hit.Y, 3, 0)
-
 			count := 0
 			updateTracks(ctx, client)
 			for i := 0; i <= 7; i++ {
 				for j := 0; j <= 7; j++ {
-					if count <= len(tracks) && (i != hit.X && j !=  hit.Y) {
+					if count <= len(tracks) {
 						pad.Light(i, j, 3, 3)
 						count += 1
 					}
 				}
 			}
+			playTrack(ctx, client, hit.X+8*hit.Y)
+			pad.Light(hit.X, hit.Y, 3, 0)
 		}
 	}
 }
@@ -102,6 +101,9 @@ func updateTracks(ctx context.Context, client *spotify.Client) {
 }
 
 func playTrack(ctx context.Context, client *spotify.Client, index int) {
+	if index > len(tracks) {
+		return
+	}
 	track := tracks[index]
 	devices, err := client.PlayerDevices(ctx)
 	if err != nil {
