@@ -54,7 +54,7 @@ func main() {
 	for i := 0; i <= 7; i++ {
 		for j := 0; j <= 7; j++ {
 			if count <= len(tracks) {
-				pad.Light(i, j, 3, 3)
+				pad.Light(j, i, 3, 3)
 				count += 1
 			}
 		}
@@ -128,13 +128,26 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = client.Next(ctx)
+	playback, err := client.PlayerState(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
-	err = client.Play(ctx)
-	if err != nil {
-		log.Fatal(err)
+	if playback.Playing == false {
+		err = client.Play(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	for playback.CurrentlyPlaying.Item.ID != track.Track.Track.ID {
+		err = client.Next(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+		playback, err = client.PlayerState(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
