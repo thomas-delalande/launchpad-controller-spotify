@@ -69,7 +69,7 @@ func main() {
 			for i := 0; i <= 7; i++ {
 				for j := 0; j <= 7; j++ {
 					if count <= len(tracks) {
-						pad.Light(i, j, 3, 3)
+						pad.Light(j, i, 3, 3)
 						count += 1
 					}
 				}
@@ -120,7 +120,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	if device.ID == "" {
 		log.Fatal("Raspberry Pi not found.")
 	}
-	err = client.TransferPlayback(ctx, device.ID, false)
+	err = client.TransferPlayback(ctx, device.ID, true)
 	if err != nil {
 		log.Fatal(err)
 	}
