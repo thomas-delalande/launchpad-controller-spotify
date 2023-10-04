@@ -85,7 +85,7 @@ func main() {
 			updateTracks(ctx, client)
 			for i := 0; i <= 7; i++ {
 				for j := 0; j <= 7; j++ {
-					if count <= len(tracks) {
+					if count <= len(tracks)-1 {
 						pad.Light(j, i, 3, 3)
 						count += 1
 					}
@@ -151,10 +151,14 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 				queueIndex = i
 			}
 		}
-		time.Sleep(100)
+		time.Sleep(200)
 		count++
-		if count > 10 {
-			log.Fatal("Song not in queue after 1 second")
+		if count > 5 {
+			fmt.Printf("Song not found in queue, transfering playback...\n")
+			client.TransferPlayback(ctx, deviceId, false)
+		}
+		if count > 20 {
+			log.Fatal("Song not in queue after 2 seconds")
 		}
 	}
 
@@ -173,17 +177,6 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 			log.Fatal(err)
 		}
 	}
-
-	// for playback.CurrentlyPlaying.Item.ID != track.Track.Track.ID {
-	// 	err = client.Next(ctx)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// 	playback, err = client.PlayerState(ctx)
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }
 }
 
 func completeAuth(w http.ResponseWriter, r *http.Request) {
@@ -197,7 +190,6 @@ func completeAuth(w http.ResponseWriter, r *http.Request) {
 		log.Fatalf("State mismatch: %s != %s\n", st, state)
 	}
 
-	// use the token to get an authenticated client
 	client := spotify.New(auth.Client(r.Context(), tok))
 	fmt.Fprintf(w, "Login Completed!")
 	ch <- client
