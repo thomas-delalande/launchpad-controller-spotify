@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/rakyll/launchpad"
 	spotifyauth "github.com/zmb3/spotify/v2/auth"
@@ -120,10 +121,35 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	}
 	track := tracks[index]
 	fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
-	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId, PositionMs: 10000})
+	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId})
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	queueIndex := -1
+	count := 0
+	for index == -1 {
+		queue, err := client.GetQueue(ctx)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		for i, item := range queue.Items {
+			if item.ID == track.Track.Track.ID {
+				queueIndex = i
+			}
+		}
+		time.Sleep(100)
+		count++
+		if count > 10 {
+			log.Fatal("Song not in queue after 1 second")
+		}
+	}
+
+	for i := 0; i <= queueIndex; i++ {
+		client.Next(ctx)
+	}
+
 	playback, err := client.PlayerState(ctx)
 	if err != nil {
 		log.Fatal(err)
