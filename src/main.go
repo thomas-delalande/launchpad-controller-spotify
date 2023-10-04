@@ -22,6 +22,7 @@ var (
 )
 
 var tracks = []spotify.PlaylistItem{}
+var deviceId = spotify.ID("")
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -41,6 +42,19 @@ func main() {
 	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
 	client := <-ch
 	updateTracks(ctx, client)
+	devices, err := client.PlayerDevices(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, d := range devices {
+		if strings.Contains(d.Name, "pi") {
+			deviceId = d.ID
+		}
+	}
+
+	if deviceId.String() == "" {
+		fmt.Printf("Device not found.")
+	}
 
 	pad, err := launchpad.Open()
 	if err != nil {
@@ -101,30 +115,12 @@ func updateTracks(ctx context.Context, client *spotify.Client) {
 }
 
 func playTrack(ctx context.Context, client *spotify.Client, index int) {
-	fmt.Printf("Playing track at index %v", index)
 	if index > len(tracks) {
 		return
 	}
 	track := tracks[index]
-	fmt.Printf("Playing track %v", track.Track.Track.Name)
-	devices, err := client.PlayerDevices(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	device := spotify.PlayerDevice{ID: ""}
-	for _, d := range devices {
-		if strings.Contains(d.Name, "pi") {
-			device = d
-		}
-	}
-	if device.ID == "" {
-		log.Fatal("Raspberry Pi not found.")
-	}
-	err = client.TransferPlayback(ctx, device.ID, true)
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = client.QueueSong(ctx, track.Track.Track.ID)
+	fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
+	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId, PositionMs: 1})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -139,16 +135,16 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		}
 	}
 
-	for playback.CurrentlyPlaying.Item.ID != track.Track.Track.ID {
-		err = client.Next(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-		playback, err = client.PlayerState(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
+	// for playback.CurrentlyPlaying.Item.ID != track.Track.Track.ID {
+	// 	err = client.Next(ctx)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// 	playback, err = client.PlayerState(ctx)
+	// 	if err != nil {
+	// 		log.Fatal(err)
+	// 	}
+	// }
 }
 
 func completeAuth(w http.ResponseWriter, r *http.Request) {
