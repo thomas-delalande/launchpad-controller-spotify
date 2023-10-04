@@ -101,10 +101,12 @@ func updateTracks(ctx context.Context, client *spotify.Client) {
 }
 
 func playTrack(ctx context.Context, client *spotify.Client, index int) {
+	fmt.Printf("Playing track at index %v", index)
 	if index > len(tracks) {
 		return
 	}
 	track := tracks[index]
+	fmt.Printf("Playing track %v", track)
 	devices, err := client.PlayerDevices(ctx)
 	if err != nil {
 		log.Fatal(err)
