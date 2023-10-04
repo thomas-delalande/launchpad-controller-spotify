@@ -128,6 +128,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 
 	queueIndex := -1
 	count := 0
+	fmt.Printf("Waiting for track to be in queue...\n")
 	for index == -1 {
 		queue, err := client.GetQueue(ctx)
 		if err != nil {
@@ -135,6 +136,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		}
 
 		for i, item := range queue.Items {
+			fmt.Printf("-> %v is in queue, position: \n", item, index)
 			if item.ID == track.Track.Track.ID {
 				queueIndex = i
 			}
@@ -147,6 +149,7 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 	}
 
 	for i := 0; i <= queueIndex; i++ {
+		fmt.Printf("Skipping track.\n")
 		client.Next(ctx)
 	}
 
