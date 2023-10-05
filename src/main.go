@@ -155,7 +155,12 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		count++
 		if count > 5 {
 			fmt.Printf("Song not found in queue, transfering playback...\n")
-			client.TransferPlayback(ctx, deviceId, false)
+			client.TransferPlayback(ctx, deviceId, true)
+			fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
+			err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId})
+			if err != nil {
+				log.Fatal(err)
+			}
 		}
 		if count > 20 {
 			log.Fatal("Song not in queue after 2 seconds")
