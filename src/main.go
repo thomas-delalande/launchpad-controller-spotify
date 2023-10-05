@@ -111,7 +111,8 @@ func updateTracks(ctx context.Context, client *spotify.Client) {
 		spotify.ID("3SNkas6dOc7sA4bTD5zR6q"),
 	)
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("%v", err)
+		return
 	}
 	for page := 1; ; page++ {
 		err = client.NextPage(ctx, trackPage)
