@@ -82,7 +82,7 @@ func main() {
 		select {
 		case hit := <-ch:
 			count := 0
-			updateTracks(ctx, client)
+			updateTracks(context.Background(), client)
 			for i := 0; i <= 7; i++ {
 				for j := 0; j <= 7; j++ {
 					if count <= len(tracks)-1 {
@@ -92,11 +92,11 @@ func main() {
 				}
 			}
 			if hit.X == activeX && hit.Y == activeY {
-				client.Pause(ctx)
+				client.Pause(context.Background())
 				activeX = -1
 				activeY = -1
 			} else {
-				playTrack(ctx, client, hit.X+8*hit.Y)
+				playTrack(context.Background(), client, hit.X+8*hit.Y)
 				activeX = hit.X
 				activeY = hit.Y
 				pad.Light(hit.X, hit.Y, 3, 0)
