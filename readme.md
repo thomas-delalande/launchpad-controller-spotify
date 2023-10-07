@@ -34,7 +34,7 @@ and also calles the
    ./app \
         -spotifyId={Client ID from Developer Dashboard} \
         -spotifySecret={Client Secret from Developer Dashboard} \
-        -playlist={Playlist ID of your selected playlist}
+        -playlist={Playlist ID of your selected playlist} \
         -device={Device name that will be playing the music}
 ```
 
