@@ -15,9 +15,6 @@ import (
 	"golang.org/x/oauth2"
 )
 
-const redirectURI = "http://localhost:8888/callback"
-
-var tracks = []PlaylistItem{}
 var deviceId = ""
 var activeX = -1
 var activeY = -1
@@ -27,7 +24,7 @@ func main() {
 	config := &oauth2.Config{
 		ClientID:     os.Getenv("SPOTIFY_ID"),
 		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
-		RedirectURL:  "http://localhost:8888/v2/callback",
+		RedirectURL:  "http://localhost:8888/callback",
 		Scopes: []string{
 			"user-read-private",
 			"user-read-playback-state",
@@ -39,12 +36,12 @@ func main() {
 		},
 	}
 
-	urlCode := config.AuthCodeURL("state")
+	urlCode := config.AuthCodeURL("")
 	fmt.Printf("Please log in to Spotify by visiting the following page in your browser: %v", urlCode)
 	fmt.Scanln()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	http.HandleFunc("/v2/callback", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		values := r.URL.Query()
 		code := values.Get("code")
 		client = completeAuth2(config, code)
