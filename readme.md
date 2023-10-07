@@ -30,7 +30,8 @@ and also calles the
 5. Build with `go build src/app.go`
 6. Run the app with
 
-```./app \
+```
+   ./app \
         -spotifyId={Client ID from Developer Dashboard} \
         -spotifySecret={Client Secret from Developer Dashboard} \
         -playlist={Playlist ID of your selected playlist}
