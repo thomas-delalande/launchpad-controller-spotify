@@ -1,36 +1,53 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/rakyll/launchpad"
-	spotifyauth "github.com/zmb3/spotify/v2/auth"
-
-	"github.com/zmb3/spotify/v2"
+	"golang.org/x/oauth2"
 )
 
 const redirectURI = "http://localhost:8888/callback"
 
-var (
-	auth  = spotifyauth.New(spotifyauth.WithRedirectURL(redirectURI), spotifyauth.WithScopes(spotifyauth.ScopeUserReadPrivate, spotifyauth.ScopeUserModifyPlaybackState, spotifyauth.ScopeUserReadPlaybackState))
-	ch    = make(chan *spotify.Client)
-	state = ""
-)
-
-var tracks = []spotify.PlaylistItem{}
-var deviceId = spotify.ID("")
+var tracks = []PlaylistItem{}
+var deviceId = ""
 var activeX = -1
 var activeY = -1
 
 func main() {
+	var client *http.Client
+	config := &oauth2.Config{
+		ClientID:     os.Getenv("SPOTIFY_ID"),
+		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
+		RedirectURL:  "http://localhost:8888/v2/callback",
+		Scopes: []string{
+			"user-read-private",
+			"user-read-playback-state",
+			"user-modify-playback-state",
+		},
+		Endpoint: oauth2.Endpoint{
+			AuthURL:  "https://accounts.spotify.com/authorize",
+			TokenURL: "https://accounts.spotify.com/api/token",
+		},
+	}
+
+	urlCode := config.AuthCodeURL("state")
+	fmt.Printf("Please log in to Spotify by visiting the following page in your browser: %v", urlCode)
+
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	ctx := context.Background()
-	http.HandleFunc("/callback", completeAuth)
+	http.HandleFunc("/v2/callback", func(w http.ResponseWriter, r *http.Request) {
+		values := r.URL.Query()
+		code := values.Get("code")
+		client = completeAuth2(config, code)
+	})
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("Got request for:", r.URL.String())
 	})
@@ -41,28 +58,21 @@ func main() {
 		}
 	}()
 
-	url := auth.AuthURL(state)
-	fmt.Println("Please log in to Spotify by visiting the following page in your browser:", url)
-	client := <-ch
-	updateTracks(ctx, client)
-	devices, err := client.PlayerDevices(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
+	tracks = updateTracks(client)
+	devices := getDevices(client)
 	for _, d := range devices {
 		if strings.Contains(d.Name, "pi") {
-			deviceId = d.ID
+			deviceId = d.Id
 		}
 	}
 
-	if deviceId.String() == "" {
+	if deviceId == "" {
 		fmt.Printf("Device not found.")
 	}
 
 	pad, err := launchpad.Open()
 	if err != nil {
-		fmt.Printf("Error initializing launchpad: %v", err)
-		panic("")
+		log.Fatalf("Error initializing launchpad: %v\n", err)
 	}
 	defer pad.Close()
 
@@ -82,7 +92,7 @@ func main() {
 		select {
 		case hit := <-ch:
 			count := 0
-			updateTracks(context.Background(), client)
+			tracks = updateTracks(client)
 			for i := 0; i <= 7; i++ {
 				for j := 0; j <= 7; j++ {
 					if count <= len(tracks)-1 {
@@ -92,11 +102,11 @@ func main() {
 				}
 			}
 			if hit.X == activeX && hit.Y == activeY {
-				client.Pause(context.Background())
+				pause(client)
 				activeX = -1
 				activeY = -1
 			} else {
-				playTrack(context.Background(), client, hit.X+8*hit.Y)
+				playTrack(client, hit.X+8*hit.Y)
 				activeX = hit.X
 				activeY = hit.Y
 				pad.Light(hit.X, hit.Y, 3, 0)
@@ -105,50 +115,58 @@ func main() {
 	}
 }
 
-func updateTracks(ctx context.Context, client *spotify.Client) {
-	trackPage, err := client.GetPlaylistItems(
-		ctx,
-		spotify.ID("3SNkas6dOc7sA4bTD5zR6q"),
-	)
-	if err != nil {
-		log.Printf("%v", err)
-		return
-	}
-	for page := 1; ; page++ {
-		err = client.NextPage(ctx, trackPage)
-		if err == spotify.ErrNoMorePages {
-			break
-		}
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	tracks = trackPage.Items
+type Track struct {
+	Name string
+	Id   string
 }
 
-func playTrack(ctx context.Context, client *spotify.Client, index int) {
+type PlaylistItem struct {
+	Track Track
+}
+
+func updateTracks(client *http.Client) []PlaylistItem {
+	type PlayerlistItemsResponse struct {
+		items []PlaylistItem
+	}
+	response, err := client.Get(
+		fmt.Sprintf("https://api.spotify.com/v1/playlists/%v/tracks?limit=50&offset=0", "3SNkas6dOc7sA4bTD5zR6q"),
+	)
+	if err != nil {
+		log.Fatalf("%v", err)
+	}
+	defer response.Body.Close()
+
+	var playlistItemsResponse PlayerlistItemsResponse
+	json.NewDecoder(response.Body).Decode(playlistItemsResponse)
+	return playlistItemsResponse.items
+
+}
+
+func playTrack(client *http.Client, index int) {
 	if index >= len(tracks) {
 		return
 	}
 	track := tracks[index]
-	fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
-	err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId})
-	if err != nil {
-		log.Fatal(err)
-	}
+	play(client, track.Track, deviceId)
 
 	queueIndex := -1
 	count := 0
 	fmt.Printf("Waiting for track to be in queue...\n")
 	for queueIndex == -1 {
-		queue, err := client.GetQueue(ctx)
+		response, err := client.Get("https://api.spotify.com/v1/me/player/queue")
 		if err != nil {
 			log.Fatal(err)
 		}
+		type QueueResponse struct {
+			Queue []Track
+		}
+		var queueResponse QueueResponse
+		json.NewDecoder(response.Body).Decode(queueResponse)
+		queue := queueResponse.Queue
 
-		for i, item := range queue.Items {
+		for i, item := range queue {
 			fmt.Printf("-> %v is in queue, position: %v \n", item, i)
-			if item.ID == track.Track.Track.ID {
+			if item.Id == track.Track.Id {
 				queueIndex = i
 			}
 		}
@@ -156,12 +174,8 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 		count++
 		if count >= 5 {
 			fmt.Printf("Song not found in queue, transfering playback...\n")
-			client.TransferPlayback(ctx, deviceId, true)
-			fmt.Printf("Playing track: %v\n", track.Track.Track.Name)
-			err := client.QueueSongOpt(ctx, track.Track.Track.ID, &spotify.PlayOptions{DeviceID: &deviceId})
-			if err != nil {
-				log.Fatal(err)
-			}
+			transferPlayback(client, deviceId)
+			play(client, track.Track, deviceId)
 		}
 		if count > 20 {
 			log.Fatal("Song not in queue after 2 seconds")
@@ -170,33 +184,109 @@ func playTrack(ctx context.Context, client *spotify.Client, index int) {
 
 	for i := 0; i <= queueIndex; i++ {
 		fmt.Printf("Skipping track.\n")
-		client.Next(ctx)
+		next(client)
 	}
 
-	playback, err := client.PlayerState(ctx)
-	if err != nil {
-		log.Fatal(err)
-	}
-	if playback.Playing == false {
-		err = client.Play(ctx)
-		if err != nil {
-			log.Fatal(err)
-		}
+	if !isPlaying(client) {
+		startPlaying(client)
+
 	}
 }
 
-func completeAuth(w http.ResponseWriter, r *http.Request) {
-	tok, err := auth.Token(r.Context(), state, r)
+func completeAuth2(config *oauth2.Config, code string) *http.Client {
+	token, err := config.Exchange(context.Background(), code)
 	if err != nil {
-		http.Error(w, "Couldn't get token", http.StatusForbidden)
 		log.Fatal(err)
 	}
-	if st := r.FormValue("state"); st != state {
-		http.NotFound(w, r)
-		log.Fatalf("State mismatch: %s != %s\n", st, state)
+	client := config.Client(context.Background(), token)
+	return client
+}
+
+type Device struct {
+	Id   string
+	Name string
+}
+
+func getDevices(client *http.Client) []Device {
+	type DevicesResponse struct {
+		devices []Device
+	}
+	response, err := client.Get("https://api.spotify.com/v1/me/player/devices")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	var deviceResponse DevicesResponse
+	json.NewDecoder(response.Body).Decode(deviceResponse)
+	return deviceResponse.devices
+}
+
+func pause(client *http.Client) {
+	request, err := http.NewRequest(http.MethodPut, "https://api.spotify.com/v1/me/player/pause", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+}
+
+func play(client *http.Client, track Track, deviceId string) {
+	fmt.Printf("Playing track: %v\n", track.Name)
+	_, err := client.Post(fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=spotify:track:%v&device_id=%v", track.Id, deviceId), "application/json", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func transferPlayback(client *http.Client, deviceId string) {
+	body := []byte(fmt.Sprintf("{\"device_ids\":[\"%v\"]}", deviceId))
+	request, err := http.NewRequest(http.MethodPut, "https://api.spotify.com/v1/me/player/pause", bytes.NewBuffer(body))
+	if err != nil {
+		log.Fatal(err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+}
+
+func next(client *http.Client) {
+	_, err := client.Post("https://api.spotify.com/v1/me/player/next", "application/json", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func isPlaying(client *http.Client) bool {
+	type PlayerResponse struct {
+		IsPlaying bool
 	}
 
-	client := spotify.New(auth.Client(r.Context(), tok))
-	fmt.Fprintf(w, "Login Completed!")
-	ch <- client
+	response, err := client.Get("https://api.spotify.com/v1/me/player")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
+
+	var body PlayerResponse
+	json.NewDecoder(response.Body).Decode(body)
+	return body.IsPlaying
+}
+
+func startPlaying(client *http.Client) {
+	request, err := http.NewRequest(http.MethodPut, "https://api.spotify.com/v1/me/player/play", nil)
+	if err != nil {
+		log.Fatal(err)
+	}
+	response, err := client.Do(request)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer response.Body.Close()
 }
