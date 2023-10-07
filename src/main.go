@@ -21,6 +21,22 @@ var activeX = -1
 var activeY = -1
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+		values := r.URL.Query()
+		code := values.Get("code")
+		client = completeAuth2(config, code)
+	})
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		log.Println("Got request for:", r.URL.String())
+	})
+	go func() {
+		err := http.ListenAndServe(":8888", nil)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
+
 	var client *http.Client
 	config := &oauth2.Config{
 		ClientID:     os.Getenv("SPOTIFY_ID"),
@@ -40,22 +56,6 @@ func main() {
 	urlCode := config.AuthCodeURL("")
 	fmt.Printf("Please log in to Spotify by visiting the following page in your browser: %v", urlCode)
 	fmt.Scanln()
-
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
-		values := r.URL.Query()
-		code := values.Get("code")
-		client = completeAuth2(config, code)
-	})
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Got request for:", r.URL.String())
-	})
-	go func() {
-		err := http.ListenAndServe(":8888", nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
 
 	tracks = updateTracks(client)
 	devices := getDevices(client)
