@@ -259,10 +259,11 @@ func pause(client *http.Client) {
 
 func play(client *http.Client, track Track, deviceId string) {
 	fmt.Printf("Playing track: %v\n", track.Name)
-	_, err := client.Post(fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=spotify:track:%v&device_id=%v", track.Id, deviceId), "application/json", nil)
+	response, err := client.Post(fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=spotify:track:%v&device_id=%v", track.Id, deviceId), "application/json", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+	fmt.Printf("	status[%v]\n", response.Status)
 }
 
 func transferPlayback(client *http.Client, deviceId string) {
