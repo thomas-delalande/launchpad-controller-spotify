@@ -41,6 +41,7 @@ func main() {
 
 	urlCode := config.AuthCodeURL("state")
 	fmt.Printf("Please log in to Spotify by visiting the following page in your browser: %v", urlCode)
+	fmt.Scanln()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	http.HandleFunc("/v2/callback", func(w http.ResponseWriter, r *http.Request) {
