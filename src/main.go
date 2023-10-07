@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/rakyll/launchpad"
@@ -22,11 +21,25 @@ var activeX = -1
 var activeY = -1
 
 func main() {
+	spotifyId := flag.String("spotifyId", "", "Spotify Client ID")
+	spotifySecret := flag.String("spotifySecret", "", "Spotify Secret ID")
+	playlistId := flag.String("playlist", "3SNkas6dOc7sA4bTD5zR6q", "The Spotify Playlist ID")
+	deviceName := flag.String("device", "Spotifyd@raspberrypi", "Spotify device to play music from")
+	flag.Parse()
+
+	if *spotifyId == "" {
+		log.Fatalln("-spotifyId must be present")
+	}
+
+	if *spotifySecret == "" {
+		log.Fatalln("-spotifySecret must be present")
+	}
+
 	var client *http.Client
 	config := &oauth2.Config{
-		ClientID:     os.Getenv("SPOTIFY_ID"),
-		ClientSecret: os.Getenv("SPOTIFY_SECRET"),
-		RedirectURL:  "http://localhost:8888/callback",
+		ClientID:     *spotifyId,
+		ClientSecret: *spotifySecret,
+		RedirectURL:  fmt.Sprintf("http://localhost:8888/callback"),
 		Scopes: []string{
 			"user-read-private",
 			"user-read-playback-state",
@@ -38,29 +51,29 @@ func main() {
 		},
 	}
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
-	http.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
+
+	urlCode := config.AuthCodeURL("")
+	fmt.Printf("Please log in to Spotify by visiting the following page in your browser:\n %v\n", urlCode)
+
+	handler := http.NewServeMux()
+	server := http.Server{Addr: ":8888", Handler: handler}
+	handler.HandleFunc("/callback", func(w http.ResponseWriter, r *http.Request) {
 		values := r.URL.Query()
 		code := values.Get("code")
 		client = completeAuth(config, code)
+		server.Shutdown(context.Background())
 	})
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		log.Println("Got request for:", r.URL.String())
-	})
-	go func() {
-		err := http.ListenAndServe(":8888", nil)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatal(err)
+	}
 
-	urlCode := config.AuthCodeURL("")
-	fmt.Printf("Please log in to Spotify by visiting the following page in your browser: %v", urlCode)
-	fmt.Scanln()
+	fmt.Println("Successfully authenticated...")
 
-	tracks = updateTracks(client)
+	tracks = updateTracks(client, *playlistId)
 	devices := getDevices(client)
 	for _, d := range devices {
-		if strings.Contains(d.Name, "pi") {
+		if d.Name == *deviceName {
 			deviceId = d.Id
 		}
 	}
@@ -69,50 +82,7 @@ func main() {
 		fmt.Printf("Device not found.")
 	}
 
-	// Launchpad stuff
-	pad, err := launchpad.Open()
-	if err != nil {
-		log.Fatalf("Error initializing launchpad: %v\n", err)
-	}
-	defer pad.Close()
-
-	pad.Clear()
-	count := 0
-	for i := 0; i <= 7; i++ {
-		for j := 0; j <= 7; j++ {
-			if count <= len(tracks)-1 {
-				pad.Light(j, i, 3, 3)
-				count += 1
-			}
-		}
-	}
-
-	ch := pad.Listen()
-	for {
-		select {
-		case hit := <-ch:
-			count := 0
-			tracks = updateTracks(client)
-			for i := 0; i <= 7; i++ {
-				for j := 0; j <= 7; j++ {
-					if count <= len(tracks)-1 {
-						pad.Light(j, i, 3, 3)
-						count += 1
-					}
-				}
-			}
-			if hit.X == activeX && hit.Y == activeY {
-				pause(client)
-				activeX = -1
-				activeY = -1
-			} else {
-				playTrack(client, hit.X+8*hit.Y)
-				activeX = hit.X
-				activeY = hit.Y
-				pad.Light(hit.X, hit.Y, 3, 0)
-			}
-		}
-	}
+	runLaunchpad(client, *playlistId)
 }
 
 type Track struct {
@@ -124,13 +94,13 @@ type PlaylistItem struct {
 	Track Track
 }
 
-func updateTracks(client *http.Client) []PlaylistItem {
+func updateTracks(client *http.Client, playlistId string) []PlaylistItem {
 	log.Printf("Getting latest tracks...")
 	type PlayerlistItemsResponse struct {
 		Items []PlaylistItem
 	}
 	response, err := client.Get(
-		fmt.Sprintf("https://api.spotify.com/v1/playlists/%v/tracks?limit=50&offset=0", "3SNkas6dOc7sA4bTD5zR6q"),
+		fmt.Sprintf("https://api.spotify.com/v1/playlists/%v/tracks?limit=50&offset=0", playlistId),
 	)
 	if err != nil {
 		log.Fatalf("%v", err)
@@ -238,7 +208,7 @@ func getDevices(client *http.Client) []Device {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("	devices[%v]\n", data.Devices)
+	log.Printf("Fetched devices[%v]\n", data.Devices)
 	return data.Devices
 }
 
@@ -261,7 +231,7 @@ func play(client *http.Client, track Track, deviceId string) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	fmt.Printf("	status[%v]\n", response.Status)
+	fmt.Printf("status[%v]\n", response.Status)
 }
 
 func transferPlayback(client *http.Client, deviceId string) {
@@ -305,7 +275,7 @@ func isPlaying(client *http.Client) bool {
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("	IsPlaying[%v]\n", data.IsPlaying)
+	log.Printf("IsPlaying[%v]\n", data.IsPlaying)
 	return data.IsPlaying
 }
 
@@ -319,4 +289,50 @@ func startPlaying(client *http.Client) {
 		log.Fatal(err)
 	}
 	defer response.Body.Close()
+}
+
+func runLaunchpad(client *http.Client, playlistId string) {
+	pad, err := launchpad.Open()
+	if err != nil {
+		log.Fatalf("Error initializing launchpad: %v\n", err)
+	}
+	defer pad.Close()
+
+	pad.Clear()
+	count := 0
+	for i := 0; i <= 7; i++ {
+		for j := 0; j <= 7; j++ {
+			if count <= len(tracks)-1 {
+				pad.Light(j, i, 3, 3)
+				count += 1
+			}
+		}
+	}
+
+	ch := pad.Listen()
+	for {
+		select {
+		case hit := <-ch:
+			count := 0
+			tracks = updateTracks(client, playlistId)
+			for i := 0; i <= 7; i++ {
+				for j := 0; j <= 7; j++ {
+					if count <= len(tracks)-1 {
+						pad.Light(j, i, 3, 3)
+						count += 1
+					}
+				}
+			}
+			if hit.X == activeX && hit.Y == activeY {
+				pause(client)
+				activeX = -1
+				activeY = -1
+			} else {
+				playTrack(client, hit.X+8*hit.Y)
+				activeX = hit.X
+				activeY = hit.Y
+				pad.Light(hit.X, hit.Y, 3, 0)
+			}
+		}
+	}
 }
