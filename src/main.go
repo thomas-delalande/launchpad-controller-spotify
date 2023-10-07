@@ -15,6 +15,7 @@ import (
 	"golang.org/x/oauth2"
 )
 
+var tracks = []PlaylistItem{}
 var deviceId = ""
 var activeX = -1
 var activeY = -1
