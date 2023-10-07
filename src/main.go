@@ -69,6 +69,7 @@ func main() {
 		fmt.Printf("Device not found.")
 	}
 
+	// Launchpad stuff
 	pad, err := launchpad.Open()
 	if err != nil {
 		log.Fatalf("Error initializing launchpad: %v\n", err)
@@ -259,7 +260,7 @@ func pause(client *http.Client) {
 
 func play(client *http.Client, track Track, deviceId string) {
 	fmt.Printf("Playing track. name[%v] id[%v]\n", track.Name, track.Id)
-	response, err := client.Post(fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=spotify:track:%v&device_id=%v", track.Id, deviceId), "application/json", nil)
+	response, err := client.Post(fmt.Sprintf("https://api.spotify.com/v1/me/player/queue?uri=spotify:track:%v", track.Id), "application/json", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
