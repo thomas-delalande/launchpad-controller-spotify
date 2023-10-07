@@ -138,7 +138,6 @@ func updateTracks(client *http.Client) []PlaylistItem {
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
-	log.Printf("	response[%v]\n", string(body))
 
 	data := PlayerlistItemsResponse{}
 	err = json.Unmarshal(body, &data)
@@ -169,7 +168,6 @@ func playTrack(client *http.Client, index int) {
 			Queue []Track
 		}
 		body, err := io.ReadAll(response.Body)
-		log.Printf("	response[%v]\n", string(body))
 
 		data := QueueResponse{}
 		err = json.Unmarshal(body, &data)
@@ -234,7 +232,6 @@ func getDevices(client *http.Client) []Device {
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
-	log.Printf("	response[%v]\n", string(body))
 
 	data := DevicesResponse{}
 	err = json.Unmarshal(body, &data)
@@ -270,7 +267,7 @@ func play(client *http.Client, track Track, deviceId string) {
 func transferPlayback(client *http.Client, deviceId string) {
 	log.Printf("Transfering playback to device[%v]...\n", deviceId)
 	body := []byte(fmt.Sprintf("{\"device_ids\":[\"%v\"]}", deviceId))
-	request, err := http.NewRequest(http.MethodPut, "https://api.spotify.com/v1/me/player/pause", bytes.NewBuffer(body))
+	request, err := http.NewRequest(http.MethodPut, "https://api.spotify.com/v1/me/player", bytes.NewBuffer(body))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -280,6 +277,7 @@ func transferPlayback(client *http.Client, deviceId string) {
 		log.Fatal(err)
 	}
 	defer response.Body.Close()
+	fmt.Println("Transfering playback complete. status[%v]", response.Status)
 }
 
 func next(client *http.Client) {
@@ -301,7 +299,6 @@ func isPlaying(client *http.Client) bool {
 	defer response.Body.Close()
 
 	body, err := io.ReadAll(response.Body)
-	log.Printf("	response[%v]\n", string(body))
 
 	data := PlayerResponse{}
 	err = json.Unmarshal(body, &data)
